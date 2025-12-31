@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Phone, Mail, MapPin, Calendar, DollarSign, Clock, User, Send } from "lucide-react";
 
 const ContactSection = () => {
@@ -41,25 +42,53 @@ const ContactSection = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const { error } = await supabase.from("customer_inquiries").insert({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        preferred_area: formData.preferredArea || null,
+        budget: formData.budget || null,
+        preferred_time: formData.preferredTime || null,
+        appointment_date: formData.appointmentDate || null,
+        message: formData.message.trim() || null,
+      });
 
-    toast({
-      title: "Request Submitted Successfully!",
-      description: "Our AI agent will call you at your preferred time to discuss available properties.",
-    });
+      if (error) {
+        console.error("Error submitting inquiry:", error);
+        toast({
+          title: "Submission Failed",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      preferredArea: "",
-      budget: "",
-      preferredTime: "",
-      appointmentDate: "",
-      message: "",
-    });
-    setIsSubmitting(false);
+      toast({
+        title: "Request Submitted Successfully!",
+        description: "Our AI agent will call you at your preferred time to discuss available properties.",
+      });
+
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        preferredArea: "",
+        budget: "",
+        preferredTime: "",
+        appointmentDate: "",
+        message: "",
+      });
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      toast({
+        title: "Something went wrong",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const areas = [
