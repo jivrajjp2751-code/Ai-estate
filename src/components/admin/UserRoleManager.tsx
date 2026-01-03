@@ -120,7 +120,9 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
   };
 
   const handleInviteUser = async () => {
-    if (!inviteEmail.trim()) {
+    const normalizedEmail = inviteEmail.trim().toLowerCase();
+
+    if (!normalizedEmail) {
       toast({
         title: "Email required",
         description: "Please enter an email address",
@@ -131,45 +133,40 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
 
     setIsInviting(true);
     try {
-      // Check if user already exists
-      const existingProfile = profiles.find(
-        (p) => p.email?.toLowerCase() === inviteEmail.toLowerCase()
+      const { data, error } = await supabase.functions.invoke(
+        "admin-grant-role-by-email",
+        {
+          body: {
+            email: normalizedEmail,
+            role: inviteRole,
+          },
+        }
       );
 
-      if (existingProfile) {
-        // Update existing user's role
-        const { error } = await supabase
-          .from("profiles")
-          .update({ role: inviteRole })
-          .eq("id", existingProfile.id);
-
-        if (error) throw error;
-
-        setProfiles((prev) =>
-          prev.map((p) =>
-            p.id === existingProfile.id ? { ...p, role: inviteRole } : p
-          )
-        );
-
-        toast({
-          title: "Role updated",
-          description: `${inviteEmail} has been given ${inviteRole} access`,
-        });
-      } else {
-        toast({
-          title: "User not found",
-          description: "This user needs to sign up first. Once they create an account, you can assign them a role.",
-          variant: "destructive",
-        });
+      if (error) {
+        throw new Error(error.message || "Failed to grant access");
       }
+
+      const profile = (data as any)?.profile as Profile | undefined;
+
+      toast({
+        title: "Access granted",
+        description: `${profile?.email ?? normalizedEmail} is now ${inviteRole}`,
+      });
 
       setIsInviteOpen(false);
       setInviteEmail("");
       setInviteRole("editor");
+
+      // Refresh to reflect new/updated profile
+      await fetchProfiles();
     } catch (error: any) {
+      const message =
+        error?.message || "Could not grant access. Please try again.";
+
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Grant access failed",
+        description: message,
         variant: "destructive",
       });
     } finally {

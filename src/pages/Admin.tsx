@@ -127,6 +127,36 @@ const Admin = () => {
     }
   }, [session, isAdminOrEditor]);
 
+  // Realtime admin notifications for new inquiries
+  useEffect(() => {
+    if (!session || !isAdminOrEditor) return;
+
+    const channel = supabase
+      .channel("admin-inquiry-notifications")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "customer_inquiries" },
+        (payload) => {
+          const newInquiry = payload.new as Inquiry;
+
+          setInquiries((prev) => {
+            if (prev.some((i) => i.id === newInquiry.id)) return prev;
+            return [newInquiry, ...prev];
+          });
+
+          toast({
+            title: "New inquiry received",
+            description: `${newInquiry.name} • ${newInquiry.phone}`,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session, isAdminOrEditor, toast]);
+
   useEffect(() => {
     let result = inquiries;
 
