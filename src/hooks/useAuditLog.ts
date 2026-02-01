@@ -1,5 +1,14 @@
-import { supabase } from "@/integrations/supabase/client";
-import type { Json } from "@/integrations/supabase/types";
+import { api as supabase } from "@/lib/api";
+
+// Simple Json type definition
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
 
 interface AuditLogEntry {
   action: string;
@@ -13,7 +22,7 @@ export const useAuditLog = () => {
   const logAction = async (entry: AuditLogEntry) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         console.error("Cannot log audit action: No authenticated user");
         return;

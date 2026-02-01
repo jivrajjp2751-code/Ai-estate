@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -209,8 +209,16 @@ const CallAppointmentsTab = () => {
             {
               appointments.filter((a) => {
                 if (!a.appointment_date) return false;
-                const today = format(new Date(), "yyyy-MM-dd");
-                return a.appointment_date.includes(today);
+                try {
+                  const today = format(new Date(), "yyyy-MM-dd");
+                  // Attempt to parse the date string or check for direct match
+                  const isMatch = a.appointment_date.includes(today) ||
+                    (new Date(a.appointment_date).toString() !== 'Invalid Date' &&
+                      format(new Date(a.appointment_date), "yyyy-MM-dd") === today);
+                  return isMatch;
+                } catch (e) {
+                  return false;
+                }
               }).length
             }
           </p>

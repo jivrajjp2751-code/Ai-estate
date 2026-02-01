@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MapPin, Bed, Bath, Square, Calendar, Phone, Heart, Share2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 
 interface Property {
   id: string;
@@ -45,7 +45,7 @@ const PropertyDetailModal = ({ property, isOpen, onClose }: PropertyDetailModalP
 
   const fetchPropertyImages = async () => {
     if (!property) return;
-    
+
     const { data, error } = await supabase
       .from("property_images")
       .select("*")
@@ -78,9 +78,9 @@ const PropertyDetailModal = ({ property, isOpen, onClose }: PropertyDetailModalP
 
   if (!property) return null;
 
-  const displayImages = images.length > 0 
-    ? images 
-    : property.primary_image_url 
+  const displayImages = images.length > 0
+    ? images
+    : property.primary_image_url
       ? [{ id: '1', property_id: property.id, image_url: property.primary_image_url, is_primary: true, display_order: 0 }]
       : [];
 
@@ -165,9 +165,8 @@ const PropertyDetailModal = ({ property, isOpen, onClose }: PropertyDetailModalP
                                   <button
                                     key={idx}
                                     onClick={() => setCurrentImageIndex(idx)}
-                                    className={`w-2 h-2 rounded-full transition-colors ${
-                                      idx === currentImageIndex ? "bg-primary" : "bg-background/50"
-                                    }`}
+                                    className={`w-2 h-2 rounded-full transition-colors ${idx === currentImageIndex ? "bg-primary" : "bg-background/50"
+                                      }`}
                                   />
                                 ))}
                               </div>
@@ -193,9 +192,8 @@ const PropertyDetailModal = ({ property, isOpen, onClose }: PropertyDetailModalP
                           <button
                             key={img.id}
                             onClick={() => setCurrentImageIndex(idx)}
-                            className={`flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                              idx === currentImageIndex ? "border-primary" : "border-transparent"
-                            }`}
+                            className={`flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden border-2 transition-colors ${idx === currentImageIndex ? "border-primary" : "border-transparent"
+                              }`}
                           >
                             <img src={img.image_url} alt="" className="w-full h-full object-cover" />
                           </button>

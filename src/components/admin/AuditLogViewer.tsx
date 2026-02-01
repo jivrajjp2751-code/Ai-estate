@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -98,25 +98,25 @@ const AuditLogViewer = () => {
 
   const formatDetails = (details: Record<string, unknown> | null) => {
     if (!details) return null;
-    
+
     const parts: string[] = [];
-    
+
     if (details.old_role && details.new_role) {
       parts.push(`${details.old_role} → ${details.new_role}`);
     }
-    
+
     if (details.role) {
       parts.push(`Role: ${details.role}`);
     }
-    
+
     if (details.previous_role) {
       parts.push(`Was: ${details.previous_role}`);
     }
-    
+
     if (details.count) {
       parts.push(`${details.count} users`);
     }
-    
+
     if (details.new_role && !details.old_role) {
       parts.push(`New role: ${details.new_role}`);
     }

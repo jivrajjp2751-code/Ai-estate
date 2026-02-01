@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -162,9 +162,8 @@ const NotificationBell = () => {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
-                    !notification.is_read ? "bg-primary/5" : ""
-                  }`}
+                  className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${!notification.is_read ? "bg-primary/5" : ""
+                    }`}
                   onClick={() => !notification.is_read && markAsRead(notification.id)}
                 >
                   <div className="flex items-start gap-3">

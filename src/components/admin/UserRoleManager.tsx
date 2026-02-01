@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useAuditLog } from "@/hooks/useAuditLog";
+
 import { useAdminNotify } from "@/hooks/useAdminNotify";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -58,7 +58,7 @@ interface UserRoleManagerProps {
 
 const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
   const { toast } = useToast();
-  const { logAction } = useAuditLog();
+
   const { sendNotification } = useAdminNotify();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -125,14 +125,7 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
 
       if (error) throw error;
 
-      // Log the role change
-      await logAction({
-        action: "role_change",
-        target_type: "user",
-        target_id: userId,
-        target_email: profile?.email || undefined,
-        details: { old_role: oldRole, new_role: newRole },
-      });
+
 
       // Send email notification
       sendNotification({
@@ -176,14 +169,7 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
 
       if (error) throw error;
 
-      // Log the access removal
-      await logAction({
-        action: "access_removed",
-        target_type: "user",
-        target_id: userId,
-        target_email: email || undefined,
-        details: { previous_role: profile?.role },
-      });
+
 
       // Send email notification
       sendNotification({
@@ -266,20 +252,12 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
 
       if (error) throw error;
 
-      // Log bulk access removal
-      await logAction({
-        action: "bulk_access_removed",
-        target_type: "users",
-        details: { 
-          count: idsToRemove.length,
-          emails: removedProfiles.map((p) => p.email).filter(Boolean),
-        },
-      });
+
 
       // Send email notification
       sendNotification({
         action: "bulk_access_removed",
-        details: { 
+        details: {
           count: idsToRemove.length,
           emails: removedProfiles.map((p) => p.email).filter(Boolean),
         },
@@ -320,21 +298,12 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
 
       if (error) throw error;
 
-      // Log bulk role change
-      await logAction({
-        action: "bulk_role_change",
-        target_type: "users",
-        details: { 
-          count: idsToUpdate.length,
-          new_role: bulkRole,
-          emails: updatedProfiles.map((p) => p.email).filter(Boolean),
-        },
-      });
+
 
       // Send email notification
       sendNotification({
         action: "bulk_role_change",
-        details: { 
+        details: {
           count: idsToUpdate.length,
           new_role: bulkRole,
           emails: updatedProfiles.map((p) => p.email).filter(Boolean),
@@ -401,14 +370,7 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
 
       const profile = (data as any)?.profile as Profile | undefined;
 
-      // Log access granted
-      await logAction({
-        action: "access_granted",
-        target_type: "user",
-        target_id: profile?.user_id,
-        target_email: normalizedEmail,
-        details: { role: inviteRole },
-      });
+
 
       // Send email notification
       sendNotification({
@@ -417,9 +379,18 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         details: { role: inviteRole },
       });
 
+      const messageRaw = (data as any)?.message || "Access granted";
+
+      let description = `${profile?.email ?? normalizedEmail} is now ${inviteRole}.`;
+      if (messageRaw === "New user created") {
+        description += " Default password: 123456";
+      } else {
+        description += " (Existing user, password unchanged)";
+      }
+
       toast({
         title: "Access granted",
-        description: `${profile?.email ?? normalizedEmail} is now ${inviteRole}`,
+        description: description,
       });
 
       setIsInviteOpen(false);
@@ -472,7 +443,7 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove User Access</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove access for <strong>{confirmRemove?.email || "this user"}</strong>? 
+              Are you sure you want to remove access for <strong>{confirmRemove?.email || "this user"}</strong>?
               They will no longer be able to access the admin dashboard.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -496,7 +467,7 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
               {bulkAction === "remove" ? "Remove Access for Multiple Users" : "Change Role for Multiple Users"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {bulkAction === "remove" 
+              {bulkAction === "remove"
                 ? `Are you sure you want to remove access for ${selectedIds.size} user(s)? They will no longer be able to access the admin dashboard.`
                 : `Are you sure you want to change the role to "${bulkRole}" for ${selectedIds.size} user(s)?`
               }

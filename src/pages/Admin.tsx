@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,9 +25,10 @@ import { useUserRole } from "@/hooks/useUserRole";
 import PropertyPhotoManager from "@/components/admin/PropertyPhotoManager";
 import PropertyManager from "@/components/admin/PropertyManager";
 import UserRoleManager from "@/components/admin/UserRoleManager";
-import AuditLogViewer from "@/components/admin/AuditLogViewer";
+
+
 import NotificationBell from "@/components/admin/NotificationBell";
-import NotificationPreferences from "@/components/admin/NotificationPreferences";
+import PasswordManager from "@/components/admin/PasswordManager";
 import CallAppointmentsTab from "@/components/admin/CallAppointmentsTab";
 import {
   Building2,
@@ -52,7 +53,16 @@ import {
   Languages,
 } from "lucide-react";
 import { format } from "date-fns";
-import { User, Session } from "@supabase/supabase-js";
+
+// Mock types since we removed Supabase SDK
+interface User {
+  id: string;
+  email?: string;
+}
+interface Session {
+  user: User;
+  access_token: string;
+}
 
 type CallLanguage = "hindi" | "english" | "marathi";
 
@@ -276,7 +286,7 @@ const Admin = () => {
   const handleInitiateCall = async (inquiry: Inquiry) => {
     try {
       setCallingInquiryId(inquiry.id);
-      
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/outbound-call`,
         {
@@ -375,6 +385,10 @@ const Admin = () => {
           </div>
           <div className="flex items-center gap-2">
             {role === "admin" && <NotificationBell />}
+            <Button variant="outline" onClick={() => navigate("/")} className="gap-2">
+              <Home className="w-4 h-4" />
+              View Live Site
+            </Button>
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               Logout
@@ -409,18 +423,11 @@ const Admin = () => {
                 Users
               </TabsTrigger>
             )}
-            {role === "admin" && (
-              <TabsTrigger value="audit" className="flex items-center gap-2">
-                <History className="w-4 h-4" />
-                Audit Logs
-              </TabsTrigger>
-            )}
-            {role === "admin" && (
-              <TabsTrigger value="settings" className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                Settings
-              </TabsTrigger>
-            )}
+
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Settings
+            </TabsTrigger>
           </TabsList>
 
           {/* Inquiries Tab */}
@@ -692,18 +699,14 @@ const Admin = () => {
           )}
 
           {/* Audit Logs Tab - Admin Only */}
-          {role === "admin" && (
-            <TabsContent value="audit">
-              <AuditLogViewer />
-            </TabsContent>
-          )}
 
-          {/* Settings Tab - Admin Only */}
-          {role === "admin" && (
-            <TabsContent value="settings">
-              <NotificationPreferences />
-            </TabsContent>
-          )}
+
+          {/* Settings Tab - For All Users */}
+          <TabsContent value="settings" className="space-y-6">
+            <PasswordManager currentUserId={user?.id} />
+
+
+          </TabsContent>
         </Tabs>
       </main>
     </div>

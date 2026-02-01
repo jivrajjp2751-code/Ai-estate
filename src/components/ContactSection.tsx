@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 import { Phone, Mail, MapPin, Calendar, DollarSign, Clock, User, Send } from "lucide-react";
 import { z } from "zod";
 
@@ -92,7 +92,7 @@ const ContactSection = () => {
     try {
       // Validate form data using Zod schema
       const validationResult = inquirySchema.safeParse(formData);
-      
+
       if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
         toast({
@@ -107,8 +107,8 @@ const ContactSection = () => {
       const validatedData = validationResult.data;
 
       // Use custom area if provided, otherwise use selected area
-      const finalArea = showCustomArea && formData.customArea.trim() 
-        ? formData.customArea.trim() 
+      const finalArea = showCustomArea && formData.customArea.trim()
+        ? formData.customArea.trim()
         : validatedData.preferredArea;
 
       // Use custom budget if provided, otherwise use selected budget
@@ -220,7 +220,7 @@ const ContactSection = () => {
             Get Your <span className="gradient-text">AI Call</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Fill in your details and preferences. Our AI agent will call you at your 
+            Fill in your details and preferences. Our AI agent will call you at your
             preferred time to discuss available properties and schedule viewings.
           </p>
         </motion.div>
@@ -235,7 +235,7 @@ const ContactSection = () => {
           >
             <div className="glass-card p-8">
               <h3 className="font-display text-2xl font-semibold mb-6">Contact Information</h3>
-              
+
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">

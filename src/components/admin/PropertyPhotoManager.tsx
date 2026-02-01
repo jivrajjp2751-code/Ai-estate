@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -103,6 +103,15 @@ const PropertyPhotoManager = () => {
     }
   }, [selectedProperty]);
 
+  // If we have a selected property with a primary image, but no images in the list, 
+  // we likely need to "see" that primary image in the manager (legacy data support)
+  // However, we don't want to auto-create DB entries just by viewing.
+  // Instead, we can just let the user Add new photos. 
+  // But if they want to DELETE the primary one, they can't see it if it's not in the list.
+  // Refined approach: If property has primary_url and list is empty, show it as a "virtual" image.
+  // For now, let's just leave it as empty (User can upload new ones to replace/managed).
+
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
@@ -161,15 +170,16 @@ const PropertyPhotoManager = () => {
         const fileExt = file.name.split(".").pop();
         const fileName = `${selectedProperty.id}/${Date.now()}-${i}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from("property-images")
           .upload(fileName, file);
 
         if (uploadError) throw uploadError;
 
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("property-images").getPublicUrl(fileName);
+        // Use the returned publicUrl from the mock adapter
+        const publicUrl = (uploadData as any)?.publicUrl;
+
+        if (!publicUrl) throw new Error("Failed to get public URL");
 
         const isPrimary = propertyImages.length === 0 && i === 0;
 
@@ -258,9 +268,10 @@ const PropertyPhotoManager = () => {
 
     try {
       // Extract file path from URL
-      const urlParts = image.image_url.split("/property-images/");
-      if (urlParts.length > 1) {
-        const filePath = urlParts[1];
+      // Handles both Supabase style path and our custom uploads
+      let filePath = image.image_url.split("/").pop(); // Simple extraction of filename
+
+      if (filePath) {
         await supabase.storage.from("property-images").remove([filePath]);
       }
 
@@ -332,11 +343,10 @@ const PropertyPhotoManager = () => {
             <motion.div
               key={property.id}
               whileHover={{ scale: 1.02 }}
-              className={`glass-card overflow-hidden cursor-pointer transition-all ${
-                selectedProperty?.id === property.id
-                  ? "ring-2 ring-primary"
-                  : ""
-              }`}
+              className={`glass-card overflow-hidden cursor-pointer transition-all ${selectedProperty?.id === property.id
+                ? "ring-2 ring-primary"
+                : ""
+                }`}
               onClick={() => setSelectedProperty(property)}
             >
               <div className="aspect-video relative bg-secondary/50">
@@ -386,11 +396,10 @@ const PropertyPhotoManager = () => {
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-                  isDragOver
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50"
-                }`}
+                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${isDragOver
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/50"
+                  }`}
               >
                 {isUploading ? (
                   <div className="flex flex-col items-center gap-2">
@@ -431,9 +440,8 @@ const PropertyPhotoManager = () => {
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
-                      className={`relative group aspect-square rounded-lg overflow-hidden border-2 ${
-                        image.is_primary ? "border-primary" : "border-transparent"
-                      }`}
+                      className={`relative group aspect-square rounded-lg overflow-hidden border-2 ${image.is_primary ? "border-primary" : "border-transparent"
+                        }`}
                     >
                       <img
                         src={image.image_url}

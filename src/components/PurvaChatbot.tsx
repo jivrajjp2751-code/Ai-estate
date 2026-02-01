@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageCircle, X, Send, Loader2, Sparkles, Home, Calendar, HelpCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 
 interface Message {
   role: "user" | "assistant";
@@ -74,7 +74,7 @@ const PurvaChatbot = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -113,7 +113,7 @@ const PurvaChatbot = () => {
       if (parts.length > 1) {
         return (
           <p key={i}>
-            {parts.map((part, j) => 
+            {parts.map((part, j) =>
               j % 2 === 1 ? <strong key={j} className="font-semibold">{part}</strong> : part
             )}
           </p>
@@ -198,11 +198,10 @@ const PurvaChatbot = () => {
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] p-3 rounded-2xl ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-muted text-foreground rounded-bl-md"
-                    }`}
+                    className={`max-w-[85%] p-3 rounded-2xl ${msg.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-br-md"
+                      : "bg-muted text-foreground rounded-bl-md"
+                      }`}
                   >
                     <div className="text-sm space-y-1">
                       {msg.role === "assistant" ? formatMessage(msg.content) : msg.content}
@@ -252,7 +251,7 @@ const PurvaChatbot = () => {
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   placeholder="Ask about properties, schedule visits..."
                   className="flex-1"
                   disabled={isLoading}

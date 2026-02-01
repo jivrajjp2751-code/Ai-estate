@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 
 interface NotifyParams {
   action: "role_change" | "access_granted" | "access_removed" | "bulk_access_removed" | "bulk_role_change";
@@ -33,7 +33,6 @@ export const useAdminNotify = () => {
         .filter((email): email is string => !!email) || [];
 
       if (adminEmails.length === 0) {
-        console.log("No other admins to notify");
         return;
       }
 

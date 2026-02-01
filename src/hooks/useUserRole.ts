@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
+import { api as supabase } from "@/lib/api";
+
+interface User {
+  id: string;
+  email?: string;
+}
+
 
 type UserRole = "admin" | "editor" | "viewer" | null;
 

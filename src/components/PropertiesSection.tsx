@@ -3,7 +3,7 @@ import { MapPin, Bed, Bath, Square, Heart, Eye, GitCompare } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api as supabase } from "@/lib/api";
 import PropertyDetailModal from "./PropertyDetailModal";
 import PropertyComparisonModal from "./PropertyComparisonModal";
 import PropertyFiltersComponent, { PropertyFilters } from "./PropertyFilters";
@@ -22,14 +22,14 @@ interface Property {
   description?: string | null;
 }
 
-const PropertyCard = ({ 
-  property, 
-  index, 
+const PropertyCard = ({
+  property,
+  index,
   onViewDetails,
   isSelected,
   onToggleSelect
-}: { 
-  property: Property; 
+}: {
+  property: Property;
   index: number;
   onViewDetails: (property: Property) => void;
   isSelected: boolean;
@@ -43,13 +43,12 @@ const PropertyCard = ({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
-      className={`glass-card-hover overflow-hidden group relative ${
-        isSelected ? "ring-2 ring-primary" : ""
-      }`}
+      className={`glass-card-hover overflow-hidden group relative ${isSelected ? "ring-2 ring-primary" : ""
+        }`}
     >
       {/* Selection Checkbox */}
       <div className="absolute top-4 left-4 z-10">
-        <div 
+        <div
           className="w-6 h-6 rounded bg-background/70 backdrop-blur-sm flex items-center justify-center cursor-pointer hover:bg-background/90 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
@@ -65,7 +64,7 @@ const PropertyCard = ({
       </div>
 
       {/* Image Container */}
-      <div 
+      <div
         className="relative h-64 overflow-hidden bg-secondary/50 cursor-pointer"
         onClick={() => onViewDetails(property)}
       >
@@ -81,7 +80,7 @@ const PropertyCard = ({
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
-        
+
         {/* Featured Badge */}
         {property.featured && (
           <div className="absolute top-4 right-14 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
@@ -98,9 +97,8 @@ const PropertyCard = ({
           className="absolute top-4 right-4 w-10 h-10 rounded-full bg-background/50 backdrop-blur-sm flex items-center justify-center transition-all duration-300 hover:bg-background/70"
         >
           <Heart
-            className={`w-5 h-5 transition-colors ${
-              isLiked ? "fill-primary text-primary" : "text-foreground"
-            }`}
+            className={`w-5 h-5 transition-colors ${isLiked ? "fill-primary text-primary" : "text-foreground"
+              }`}
           />
         </button>
 
@@ -112,13 +110,13 @@ const PropertyCard = ({
 
       {/* Content */}
       <div className="p-6">
-        <h3 
+        <h3
           className="font-display text-xl font-semibold mb-2 group-hover:text-primary transition-colors cursor-pointer hover:underline"
           onClick={() => onViewDetails(property)}
         >
           {property.title}
         </h3>
-        
+
         <div className="flex items-center text-muted-foreground mb-4">
           <MapPin className="w-4 h-4 mr-1 text-primary" />
           <span className="text-sm">{property.location}</span>
@@ -140,9 +138,9 @@ const PropertyCard = ({
           </div>
         </div>
 
-        <Button 
-          variant="outline" 
-          className="w-full" 
+        <Button
+          variant="outline"
+          className="w-full"
           onClick={() => onViewDetails(property)}
         >
           <Eye className="w-4 h-4 mr-2" />
@@ -163,11 +161,11 @@ const PropertiesSection = () => {
   const [filters, setFilters] = useState<PropertyFilters>({
     search: "",
     priceMin: 0,
-    priceMax: 50,
-    bedsMin: 1,
-    bedsMax: 10,
+    priceMax: 200,
+    bedsMin: 0,
+    bedsMax: 20,
     sqftMin: 0,
-    sqftMax: 10000,
+    sqftMax: 50000,
     location: "all",
   });
 
@@ -285,7 +283,7 @@ const PropertiesSection = () => {
             className="text-center mb-8"
           >
             <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
-              Featured <span className="gradient-text">Properties</span>
+              All Premium <span className="gradient-text">Properties</span>
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
               Explore our handpicked selection of premium properties in your preferred area
@@ -362,9 +360,9 @@ const PropertiesSection = () => {
               </p>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
                 {filteredProperties.map((property, index) => (
-                  <PropertyCard 
-                    key={property.id} 
-                    property={property} 
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
                     index={index}
                     onViewDetails={handleViewDetails}
                     isSelected={selectedForComparison.some((p) => p.id === property.id)}

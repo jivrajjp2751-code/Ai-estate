@@ -37,14 +37,16 @@ const Footer = () => {
             viewport={{ once: true }}
             className="space-y-4"
           >
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-primary-foreground" />
+            <div className="flex items-center gap-2 group">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center transition-all duration-300 group-hover:shadow-[0_0_20px_rgba(var(--primary),0.5)] group-hover:scale-105">
+                <Building2 className="w-5 h-5 text-white" />
               </div>
-              <span className="font-display text-xl font-bold">AI Estate</span>
+              <span className="font-display text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-violet-600">
+                AI Estate
+              </span>
             </div>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Your intelligent real estate partner. Let our AI agent connect you 
+              Your intelligent real estate partner. Let our AI agent connect you
               with your dream property through personalized calls and viewings.
             </p>
             <div className="flex items-center gap-3">
