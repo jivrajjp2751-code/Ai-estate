@@ -403,7 +403,7 @@ const Admin = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-5xl grid-cols-7">
+          <TabsList className="flex flex-wrap h-auto p-2 gap-2 w-full md:grid md:grid-cols-7 justify-start bg-muted/50 rounded-xl">
             <TabsTrigger value="inquiries" className="flex items-center gap-2">
               <Mail className="w-4 h-4" />
               Inquiries
