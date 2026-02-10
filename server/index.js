@@ -51,9 +51,147 @@ const Inquiry = require('./models/Inquiry');
 const Appointment = require('./models/Appointment');
 const AdminUser = require('./models/AdminUser');
 const PropertyImage = require('./models/PropertyImage');
+const CallLog = require('./models/CallLog');
 
-// --- Routes ---
+// ... (existing code) ...
 
+// Outbound Call (Bolna AI)
+app.post('/api/outbound-call', async (req, res) => {
+    try {
+        const { inquiryId, phoneNumber, customerName, preferredArea, budget, language } = req.body;
+
+        console.log("------------------------------------------");
+        console.log("Received Outbound Call Request:");
+        console.log("Phone:", phoneNumber);
+        console.log("Customer:", customerName);
+        console.log("Language:", language);
+        console.log("------------------------------------------");
+
+
+
+        // Format Phone Number (Ensure +91)
+        let formattedPhone = phoneNumber.toString().trim();
+        // Remove spaces and dashes
+        formattedPhone = formattedPhone.replace(/[\s-]/g, '');
+
+        if (!formattedPhone.startsWith('+')) {
+            if (formattedPhone.startsWith('0')) {
+                formattedPhone = formattedPhone.substring(1);
+            }
+            formattedPhone = '+91' + formattedPhone;
+        }
+
+        // --- FETCH MATCHING PROPERTIES FROM DB ---
+        let propertyContext = "No specific properties found matching criteria.";
+        try {
+            let query = {};
+            if (preferredArea) {
+                // Case-insensitive regex match
+                query.location = { $regex: preferredArea, $options: 'i' };
+            }
+
+            // Fetch top 3 matching properties
+            const properties = await Property.find(query).limit(3);
+
+            if (properties.length > 0) {
+                propertyContext = properties.map((p, index) =>
+                    `${index + 1}. ${p.title} in ${p.location}. Price: ${p.price}. ${p.beds} BHK. ${p.description || ''}`
+                ).join("\n");
+            } else {
+                // Fallback: Fetch any 3 featured properties
+                const featured = await Property.find({}).limit(3);
+                if (featured.length > 0) {
+                    propertyContext = "No direct matches, but here are some featured ones:\n" +
+                        featured.map((p, index) => `${index + 1}. ${p.title} in ${p.location} (${p.price})`).join("\n");
+                }
+            }
+        } catch (dbErr) {
+            console.error("Error fetching properties for call context:", dbErr);
+        }
+
+        console.log(`Initiating Custom Python Agent call to ${formattedPhone}`);
+        console.log("Context Injected:", propertyContext);
+
+        // Call Python Agent Service
+        const pythonServiceUrl = "http://localhost:8000/start-call";
+
+        const response = await fetch(pythonServiceUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                phone: formattedPhone,
+                name: customerName,
+                property_context: propertyContext
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            console.error("Python Agent Error:", result);
+            return res.status(response.status).json({ data: null, error: result });
+        }
+
+        const activeCallId = result.call_id;
+
+        // Save Call Log (Async, don't block response if it fails)
+        try {
+            if (activeCallId) {
+                const newCallLog = new CallLog({
+                    call_id: activeCallId,
+                    agent_id: "CUSTOM_PYTHON_AGENT",
+                    customer_name: customerName,
+                    phone_number: formattedPhone,
+                    language: language,
+                    status: 'queued'
+                });
+                await newCallLog.save();
+                console.log(`Call Log saved for ID: ${activeCallId}`);
+            }
+        } catch (dbError) {
+            console.error("Failed to save call log:", dbError);
+        }
+
+        res.json({ data: { message: "Call initiated via Python Agent", callId: activeCallId }, error: null });
+
+    } catch (err) {
+        console.error("Outbound Call Error:", err);
+        res.status(500).json({ data: null, error: err.message });
+    }
+});
+
+// Call Logs
+app.get('/api/call_logs', async (req, res) => {
+    try {
+        const logs = await CallLog.find().sort({ started_at: -1 });
+        res.json({ data: logs, error: null });
+    } catch (err) {
+        res.status(500).json({ data: null, error: err.message });
+    }
+});
+
+// Sync Call Status (Manual Poll)
+// Sync Call Status (Placeholder for Local Agent)
+app.post('/api/call_logs/:id/sync', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const log = await CallLog.findById(id);
+
+        if (!log) {
+            return res.status(404).json({ data: null, error: "Log not found" });
+        }
+
+        // Since we are using a custom local agent, status updates should happen via 
+        // webhooks/callbacks from the Python agent, not by polling Bolna.
+        // For now, we just return the current state to prevent UI errors.
+
+        return res.json({ data: log, error: null });
+
+    } catch (err) {
+        console.error("Sync Error:", err);
+        res.status(500).json({ data: null, error: err.message });
+    }
+});
 // Properties
 app.get('/api/properties', async (req, res) => {
     try {
@@ -155,10 +293,31 @@ app.get('/api/customer_inquiries', async (req, res) => {
 });
 
 // Appointments
+// Appointments
 app.get('/api/call_appointments', async (req, res) => {
     try {
         const appointments = await Appointment.find().sort({ created_at: -1 });
         res.json({ data: appointments, error: null });
+    } catch (err) {
+        res.status(500).json({ data: null, error: err.message });
+    }
+});
+
+app.patch('/api/call_appointments/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updated = await Appointment.findByIdAndUpdate(id, req.body, { new: true });
+        res.json({ data: updated, error: null });
+    } catch (err) {
+        res.status(500).json({ data: null, error: err.message });
+    }
+});
+
+app.delete('/api/call_appointments/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deleted = await Appointment.findByIdAndDelete(id);
+        res.json({ data: deleted, error: null });
     } catch (err) {
         res.status(500).json({ data: null, error: err.message });
     }
@@ -384,7 +543,7 @@ app.post('/api/auth/signup', async (req, res) => {
     }
 });
 
-// Purva Chatbot Endpoint
+// Purva Chatbot Endpoint - Smart AI with MongoDB
 app.post('/api/chat', async (req, res) => {
     try {
         const { messages } = req.body;
@@ -395,53 +554,132 @@ app.post('/api/chat', async (req, res) => {
         const lastMessage = messages[messages.length - 1];
         const userQuery = lastMessage.content.toLowerCase();
 
-        // Fetch properties from DB
-        const properties = await Property.find();
+        // Fetch properties (Simple in-memory scan for this scale)
+        const allProperties = await Property.find();
 
         let responseMessage = "";
-        let matchedProperties = properties;
+        let suggestions = [];
 
-        // Simple Keyword Matching logic (Simulated AI)
-        const budgetMatch = userQuery.match(/(\d+)\s*cr/);
-        const locationMatch = userQuery.match(/(bandra|worli|andheri|powai|pune|nashik|nagpur|lonavala|alibaug|panchgani)/);
+        // --- Intent Recognition ---
 
-        if (locationMatch) {
-            const location = locationMatch[0];
-            matchedProperties = matchedProperties.filter(p => p.location.toLowerCase().includes(location));
-        }
+        const bookingWords = ["schedule", "visit", "book", "appointment", "viewing", "see", "date"];
+        const compareWords = ["compare", "difference", "vs"];
+        const supportWords = ["help", "support", "contact", "call", "office"];
 
-        if (budgetMatch) {
-            // Rudimentary budget filter - logic can be improved
-            // For now just mentioning we found budget specific ones
-        }
+        const hasBooking = bookingWords.some(w => userQuery.includes(w));
+        const hasCompare = compareWords.some(w => userQuery.includes(w));
+        const hasSupport = supportWords.some(w => userQuery.includes(w));
+        const hasPhone = userQuery.match(/(\d{10})/);
 
-        // Construct Response
-        if (matchedProperties.length === 0) {
-            responseMessage = "I couldn't find any properties matching that specific criteria right now. However, I have access to " + properties.length + " other premium listings. Would you like to see all available areas?";
-        } else if (userQuery.includes("hi") || userQuery.includes("hello")) {
-            responseMessage = "Hello! I'm Purva. I can help you find luxury properties. I see we have " + properties.length + " listings available today. Try asking 'Show me properties in Bandra' or 'What do you have in Pune?'";
-        } else {
-            // List matched properties
-            const count = matchedProperties.length;
-            responseMessage = `I found ${count} properties that might interest you:\n\n`;
+        // 1. Booking Logic (Priority)
+        if (hasPhone || (hasBooking && (userQuery.includes("tomorrow") || userQuery.includes("today") || userQuery.match(/\d{1,2}(st|nd|rd|th)?/)))) {
+            const phoneMatch = userQuery.match(/(\d{10})/);
+            const phone = phoneMatch ? phoneMatch[0] : "Not provided";
+            const dateMatch = userQuery.match(/(\d{1,2}(st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))/i) ||
+                userQuery.match(/tomorrow|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday|today/i);
+            const date = dateMatch ? dateMatch[0] : "Date TBD";
 
-            matchedProperties.slice(0, 3).forEach((p, i) => {
-                responseMessage += `${i + 1}. **${p.title}**\n   • Location: ${p.location}\n   • Price: ${p.price}\n   • ${p.beds} Beds | ${p.baths} Baths\n\n`;
-            });
-
-            if (count > 3) {
-                responseMessage += `...and ${count - 3} more.`;
+            // Find property context
+            let targetProperty = allProperties.find(p => userQuery.includes(p.title.toLowerCase()));
+            if (!targetProperty) {
+                // Look back in history
+                const historyText = messages.slice(-3).map(m => m.content.toLowerCase()).join(" ");
+                targetProperty = allProperties.find(p => historyText.includes(p.title.toLowerCase()));
             }
 
-            responseMessage += "\nWould you like to schedule a visit for any of these?";
+            const propertyName = targetProperty ? targetProperty.title : "General Inquiry";
+
+            if (phone !== "Not provided") {
+                const newAppointment = new Appointment({
+                    customer_name: "Valued Customer",
+                    customer_phone: phone,
+                    property_location: propertyName,
+                    appointment_date: date,
+                    notes: `Chat Booking: ${userQuery}`
+                });
+                await newAppointment.save();
+                responseMessage = `✅ **Confirmed!** Visit for **${propertyName}** on **${date}** has been booked.\nWe will call ${phone} shortly.`;
+                suggestions = ["Show more properties", "Back to menu"];
+            } else {
+                responseMessage = `I can book a visit for **${propertyName}**. Please provides your **10-digit Phone Number** and **Date**.`;
+                suggestions = ["My number is...", "Cancel"];
+            }
         }
 
-        res.json({
-            data: {
-                message: responseMessage
-            },
-            error: null
-        });
+        // 1.5. Booking Inquiry (No Date/Phone yet)
+        else if (hasBooking) {
+            const mentionedProp = allProperties.find(p => userQuery.includes(p.title.toLowerCase()));
+            const propName = mentionedProp ? mentionedProp.title : "a property";
+
+            responseMessage = `Great! I can help you schedule a visit for **${propName}**.\n\nPlease type your **Phone Number** and preferred **Date** (e.g., "9876543210 tomorrow") to confirm.`;
+            suggestions = ["My number is...", "Tomorrow at 10 AM"];
+        }
+
+        // 2. Comparison
+        else if (hasCompare) {
+            const mentioned = allProperties.filter(p => userQuery.includes(p.title.toLowerCase()));
+            if (mentioned.length >= 2) {
+                const [p1, p2] = mentioned;
+                responseMessage = `**Comparison**:\n• **${p1.title}**: ${p1.price}, ${p1.beds} BHK\n• **${p2.title}**: ${p2.price}, ${p2.beds} BHK\n\n${p1.location} vs ${p2.location}.`;
+                suggestions = [`Visit ${p1.title}`, `Visit ${p2.title}`];
+            } else {
+                responseMessage = "To compare, please mention two property names.";
+            }
+        }
+
+        // 3. Support
+        else if (hasSupport) {
+            responseMessage = "📞 Call us at **+91-9876543210** or email **support@aiestate.com**.";
+            suggestions = ["Show listings", "Book visit"];
+        }
+
+        // 4. Search / Greeting
+        else {
+            if (userQuery.match(/^(hi|hello)/) && userQuery.length < 20) {
+                responseMessage = "Hello! 👋 I'm your AI assistant. I can show you listings, compare prices, or book visits. What are you looking for?";
+                suggestions = ["Show properties in Bandra", "Budget under 5 Cr", "3 BHK flats"];
+            } else {
+                // Search Logic
+                let matches = allProperties;
+
+                // Loc
+                const foundLoc = ["bandra", "worli", "pune", "mumbai"].find(l => userQuery.includes(l));
+                if (foundLoc) matches = matches.filter(p => p.location.toLowerCase().includes(foundLoc));
+
+                // Beds
+                const bedMatch = userQuery.match(/(\d+)\s*bhk/);
+                if (bedMatch) matches = matches.filter(p => p.beds === parseInt(bedMatch[1]));
+
+                // Price
+                const budgetMatch = userQuery.match(/(\d+)\s*cr/);
+                if (budgetMatch && userQuery.includes("under")) {
+                    const limit = parseFloat(budgetMatch[1]);
+                    matches = matches.filter(p => {
+                        const val = parseFloat(p.price.replace(/[^0-9.]/g, ''));
+                        return val <= limit;
+                    });
+                }
+
+                if (matches.length > 0) {
+                    responseMessage = matches.length === 1
+                        ? `Found **${matches[0].title}** in ${matches[0].location}.\nPrice: ${matches[0].price}.`
+                        : `I found ${matches.length} properties. Here are the top ones:\n` + matches.slice(0, 3).map(p => `• **${p.title}** (${p.price})`).join('\n');
+
+                    suggestions = matches.slice(0, 2).map(p => `Details of ${p.title}`);
+                    suggestions.push("Schedule visit");
+                } else {
+                    responseMessage = "I didn't find any exact matches. Try '3 BHK in Bandra' or 'Under 5 Cr'.";
+                    suggestions = ["Show all properties"];
+                }
+            }
+        }
+
+        // Append Suggestions
+        if (suggestions.length > 0) {
+            responseMessage += `\n\n**Suggested:**\n${suggestions.map(s => `• ${s}`).join('\n')}`;
+        }
+
+        res.json({ data: { message: responseMessage }, error: null });
 
     } catch (err) {
         console.error("Chat Error:", err);
@@ -467,6 +705,8 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         res.status(500).json({ data: null, error: err.message });
     }
 });
+
+
 
 // Start Server
 app.listen(PORT, () => {

@@ -13,6 +13,11 @@ const createChain = (table: string) => {
             let result = await response.json();
             let data = result.data || [];
 
+            // Normalize _id to id for frontend compatibility
+            if (Array.isArray(data)) {
+                data = data.map((item: any) => ({ ...item, id: item.id || item._id }));
+            }
+
             // Apply Filters (Client-side Mock)
             if (queryFilters.length > 0) {
                 data = data.filter((item: any) => {

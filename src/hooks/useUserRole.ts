@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { api as supabase } from "@/lib/api";
 
 interface User {
   id: string;
   email?: string;
+  role?: string;
 }
-
 
 type UserRole = "admin" | "editor" | "viewer" | null;
 
@@ -14,38 +13,31 @@ export const useUserRole = (user: User | null) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRole = async () => {
-      if (!user) {
-        setRole(null);
-        setIsLoading(false);
-        return;
-      }
+    if (!user) {
+      setRole(null);
+      setIsLoading(false);
+      return;
+    }
 
-      // Reset loading state when user changes
-      setIsLoading(true);
-
+    // The user object from our MongoDB auth already contains the role
+    // No need for a separate API call
+    if (user.role) {
+      setRole(user.role as UserRole);
+    } else {
+      // Fallback: try to get role from stored user data
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("user_id", user.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching role:", error);
-          setRole(null);
+        const userStr = localStorage.getItem('ai_estate_mongo_user');
+        if (userStr) {
+          const stored = JSON.parse(userStr);
+          setRole((stored.role as UserRole) || null);
         } else {
-          setRole(data?.role as UserRole);
+          setRole(null);
         }
-      } catch (error) {
-        console.error("Error fetching role:", error);
+      } catch {
         setRole(null);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    fetchRole();
+    }
+    setIsLoading(false);
   }, [user]);
 
   const isAdminOrEditor = role === "admin" || role === "editor";

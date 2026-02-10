@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { ScrollReveal } from "@/components/ScrollAnimations";
 import { motion } from "framer-motion";
 import { api as supabase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -25,11 +26,10 @@ import { useUserRole } from "@/hooks/useUserRole";
 import PropertyPhotoManager from "@/components/admin/PropertyPhotoManager";
 import PropertyManager from "@/components/admin/PropertyManager";
 import UserRoleManager from "@/components/admin/UserRoleManager";
-
-
 import NotificationBell from "@/components/admin/NotificationBell";
 import PasswordManager from "@/components/admin/PasswordManager";
 import CallAppointmentsTab from "@/components/admin/CallAppointmentsTab";
+import CallLogsTab from "@/components/admin/CallLogsTab";
 import {
   Building2,
   LogOut,
@@ -58,6 +58,7 @@ import { format } from "date-fns";
 interface User {
   id: string;
   email?: string;
+  role?: string;
 }
 interface Session {
   user: User;
@@ -287,42 +288,44 @@ const Admin = () => {
     try {
       setCallingInquiryId(inquiry.id);
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/outbound-call`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            inquiryId: inquiry.id,
-            phoneNumber: inquiry.phone,
-            customerName: inquiry.name,
-            preferredArea: inquiry.preferred_area,
-            budget: inquiry.budget,
-            language: callLanguage,
-          }),
-        }
-      );
+      const response = await fetch("http://localhost:5000/api/outbound-call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inquiryId: inquiry.id,
+          phoneNumber: inquiry.phone,
+          customerName: inquiry.name,
+          preferredArea: inquiry.preferred_area,
+          budget: inquiry.budget,
+          language: callLanguage,
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to initiate call");
+        // Handle various error formats (string or object with message)
+        const errorMessage = data.error?.message ||
+          (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)) ||
+          "Failed to initiate call";
+        throw new Error(errorMessage);
       }
 
       const langLabels = { hindi: "Hindi", english: "English", marathi: "Marathi" };
       toast({
         title: "Call Initiated",
         description: `Purva is now calling ${inquiry.name} in ${langLabels[callLanguage]}`,
+        duration: 3000,
       });
     } catch (error: any) {
+      console.error("Call Error:", error);
       toast({
         title: "Call Failed",
         description: error.message || "Could not initiate the call",
         variant: "destructive",
+        duration: 3000,
       });
     } finally {
       setCallingInquiryId(null);
@@ -409,6 +412,10 @@ const Admin = () => {
               <CalendarCheck className="w-4 h-4" />
               Appointments
             </TabsTrigger>
+            <TabsTrigger value="call_logs" className="flex items-center gap-2">
+              <PhoneCall className="w-4 h-4" />
+              Call Logs
+            </TabsTrigger>
             <TabsTrigger value="properties" className="flex items-center gap-2">
               <Home className="w-4 h-4" />
               Properties
@@ -432,11 +439,9 @@ const Admin = () => {
 
           {/* Inquiries Tab */}
           <TabsContent value="inquiries" className="space-y-6">
-            {/* Stats */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+            <ScrollReveal
               className="grid grid-cols-1 md:grid-cols-4 gap-4"
+              delay={0.1}
             >
               <div className="glass-card p-6">
                 <p className="text-muted-foreground text-sm">Total Inquiries</p>
@@ -466,15 +471,9 @@ const Admin = () => {
                   {inquiries.filter((i) => i.preferred_area?.includes("Pune")).length}
                 </p>
               </div>
-            </motion.div>
+            </ScrollReveal>
 
-            {/* Filters & Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="glass-card p-4"
-            >
+            <ScrollReveal className="glass-card p-4" delay={0.2}>
               <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                 <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full lg:w-auto">
                   <div className="relative flex-1 max-w-md">
@@ -517,7 +516,6 @@ const Admin = () => {
                 </div>
 
                 <div className="flex gap-2 items-center">
-                  {/* Language Toggle for Calls */}
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg">
                     <Languages className="w-4 h-4 text-muted-foreground" />
                     <Select value={callLanguage} onValueChange={(v) => setCallLanguage(v as CallLanguage)}>
@@ -541,9 +539,8 @@ const Admin = () => {
                   </Button>
                 </div>
               </div>
-            </motion.div>
+            </ScrollReveal>
 
-            {/* Table */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -676,36 +673,30 @@ const Admin = () => {
             </p>
           </TabsContent>
 
-          {/* Call Appointments Tab */}
           <TabsContent value="appointments">
             <CallAppointmentsTab />
           </TabsContent>
 
-          {/* Properties Tab */}
+          <TabsContent value="call_logs">
+            <CallLogsTab />
+          </TabsContent>
+
           <TabsContent value="properties">
             <PropertyManager />
           </TabsContent>
 
-          {/* Property Photos Tab */}
           <TabsContent value="photos">
             <PropertyPhotoManager />
           </TabsContent>
 
-          {/* User Management Tab - Admin Only */}
           {role === "admin" && (
             <TabsContent value="users">
               <UserRoleManager currentUserId={user?.id} />
             </TabsContent>
           )}
 
-          {/* Audit Logs Tab - Admin Only */}
-
-
-          {/* Settings Tab - For All Users */}
           <TabsContent value="settings" className="space-y-6">
             <PasswordManager currentUserId={user?.id} />
-
-
           </TabsContent>
         </Tabs>
       </main>
